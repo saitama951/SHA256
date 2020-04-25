@@ -2,7 +2,7 @@
   IMPLEMENTATION OF SHA-256
   -----------------------------
   This is just an example of the implementation of the SHA256 algorithm
-  in simpler format
+  in a simpler format
   
   RESOURCES
   ---------
