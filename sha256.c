@@ -1,26 +1,16 @@
 #include "stdio.h"
 #include "stdlib.h"
 #include "string.h"
+#include "math.h"
 #define padding_length(s,n)(memset(s+63,n,sizeof(char)))
 
 
 void sha256_words(unsigned char[],unsigned int[]);
 void derive_words(unsigned int[]);
-void compress_sha256(unsigned int []);
+void compress_sha256(unsigned int [],unsigned int []);
 unsigned int rotate_right(unsigned int,int );
-
-
-unsigned int hash[8]={
-			0x6a09e667,
-			0xbb67ae85,
-			0x3c6ef372,
-			0xa54ff53a,
-			0x510e527f,
-			0x9b05688c,
-			0x1f83d9ab,
-			0x5be0cd19
-			
-			}; //hashes
+void divide_blocks(unsigned char [],unsigned int []);
+void less_than_256(unsigned char [],unsigned int [] );
 
 
 unsigned int k[64]={
@@ -38,23 +28,57 @@ unsigned int k[64]={
 
 int main()
 {
-	unsigned char s[64]="abc"; //enter your string here
+	unsigned int hash[8]={
+			0x6a09e667,
+			0xbb67ae85,
+			0x3c6ef372,
+			0xa54ff53a,
+			0x510e527f,
+			0x9b05688c,
+			0x1f83d9ab,
+			0x5be0cd19
+			
+			}; //hashes
+	
+	
+	unsigned char string[]="abc";
+	unsigned char s[64];
+	
+	if(strlen(string)>56)
+	{
+		divide_blocks(string,hash); //if length of the string greater than 448 bits or 56 bytes
+	}
+	else
+	{
+		strncpy(s,string,strlen(string));
+		 less_than_256(s,hash);	
+	}
+
+	
+	
+	return 0;
+}
+void less_than_256(unsigned char s[],unsigned int hash[])
+{
 	unsigned int words[64];
-	char final_hash[64];
 	int i,length,j=0;
+	char final_hash[64];
+
+	 length=strlen(s);
+	 memset(s+length,'\0',sizeof(char)*(64-length));
+	 
 	
 	length=strlen(s)*8;
 	
-	memset(s+strlen(s),0x80 ,sizeof(char)); //padding 1
 	
+	memset(s+strlen(s),0x80 ,sizeof(char)); //padding 1
 	padding_length(s,length); //padding the length of the string
-
 	
 	sha256_words(s,words);
 	derive_words(words);
-	compress_sha256(words);
-	
-	
+	compress_sha256(words,hash);
+
+
 	for(i=0;i<8;i++) //converting final hash into a string
 	{
 
@@ -62,15 +86,93 @@ int main()
 		j=j+8;
 	}
 	printf("%s\n",final_hash);
+}
+void divide_blocks(unsigned char string[],unsigned int hash[])
+{
+	double datalen=strlen(string);
+	unsigned int words[64];
+	unsigned char s[64];
+	unsigned int i=0,j,k=0;
+	int blocks=0;
+	char final_hash[64];
+	
+	blocks = ceil(datalen/64);
 
+	if((strlen(string)%64) == 0) //if blocks aree in multiple of 64
+		blocks = blocks+1;
 	
 	
-	return 0;
+	unsigned int hashvalues[blocks][8];
+
+	for(i=0;i<blocks;i++)
+	{
+		memcpy(&hashvalues[i],hash,8*sizeof(unsigned int ));
+	}
+	
+	j = 0,k = 0;
+	
+	for(i=0;i<strlen(string);i++)
+	{
+		s[k] = string[i];
+		s[k+1] = '\0';
+		if(((i+1)%64) == 0)
+		{
+			sha256_words(s,words);
+			derive_words(words);
+			compress_sha256(words,&(hashvalues[j]));
+			
+			j++;
+			
+			memset(s,'\0',sizeof(char)*64);
+			k=-1;
+		}
+		k++;
+	}
+	
+	if(j==(blocks-1)) //for last block
+	{
+	
+		memset(s+strlen(s),0x80 ,sizeof(char)); //padding 1
+
+		padding_length(s,strlen(string)*8); //padding the length of the string
+
+
+		
+		sha256_words(s,words);
+		derive_words(words);
+		compress_sha256(words,&(hashvalues[j]));
+		j++;
+	}
+	
+	for(i=1;i<blocks;i++)
+	{
+		hashvalues[0][0]+=hashvalues[i][0];
+		hashvalues[0][1]+=hashvalues[i][1];
+		hashvalues[0][2]+=hashvalues[i][2];
+		hashvalues[0][3]+=hashvalues[i][3];
+		hashvalues[0][4]+=hashvalues[i][4];
+		hashvalues[0][5]+=hashvalues[i][5];
+		hashvalues[0][6]+=hashvalues[i][6];
+		hashvalues[0][7]+=hashvalues[i][7];
+	}
+	
+	j=0;
+	
+	for(i=0;i<8;i++) //converting final hash into a string
+	{
+
+		sprintf(&final_hash[j],"%x",hashvalues[0][i]);
+		j=j+8;
+	}
+	
+	printf("%s\n",final_hash);
+	
 }
 	
 void sha256_words(unsigned char s[],unsigned int words[])
 {
 	int i,j=0;
+	
 	for(i=0;i<16;++i)
 	{
 
@@ -94,7 +196,7 @@ void derive_words(unsigned int words[])
 		words[i] = words[i-16] + s0 + words[i-7] + s1;
 	}
 }
-void compress_sha256(unsigned words[])
+void compress_sha256(unsigned words[],unsigned int hash[])
 {
 	unsigned int a,b,c,d,e,f,g,h,i,s1,s0,ch,temp1,temp2,maj;
 	
@@ -148,5 +250,4 @@ unsigned int  rotate_right(unsigned int word,int bits)
 {
 	return (word>>bits | word<<(32-bits));	
 }
-
 
